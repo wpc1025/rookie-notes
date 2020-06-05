@@ -142,9 +142,41 @@ typedef struct dict{
 	3. rehash期间，每次对字典进行添加、删除、查找或更新，程序除执行指定操作，还会将ht[0]哈希表中rehashindex索引上的所有键值对rehash到ht[1]
 	4. 在某个时间点，ht[0]的所有键值对都会被rehash到ht[1]，这时rehashindex置为-1，表示rehash结束
 
-## 3.6 跳跃表
+## 四、 跳跃表
 
+### 4.1 数据结构
+#### 4.1.1 跳跃表节点
+```C
+typedef struct zskiplistNode{
+	// 层
+	struct zskiplistLevel{
+		// 前进指针
+		struct zskiplistNode *forward;
+		// 跨度
+		unsigned int span;
+	} level[];
+	// 后退指针
+	struct zskiplistNode *backward;
+	// 分值
+	double score;
+	// 成员对象
+	robj *obj;
+}zskiplistNode;
+```
 
+#### 4.1.2 跳跃表
+```C
+typedef struct zskiplist{
+	// 表头节点和表尾节点
+	struct skiplistNode *header, *tail;
+	// 表中节点的数量
+	unsigned long length;
+	// 表中层数最大的节点的层数
+	int level;
+}zskiplist;
+```
+### 4.2 特性
+1. 有序数据结构，在每个节点中维持多个指向其他节点的指针，从而达到快速访问节点的目的。支持平均`O(logN)`、最坏`O(N)`复杂度的节点查找。有序集合键的底层实现之一。
 
 
 
