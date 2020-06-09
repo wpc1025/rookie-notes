@@ -194,3 +194,170 @@ print(sum)
 
 ## 三、函数
 
+```Python
+import math
+
+
+# 函数定义
+def my_abs(x):
+    # 进行类型检查
+    if not isinstance(x, (int, float)):
+        raise TypeError('bad operand type')
+    if x >= 0:
+        return x
+    else:
+        return -x
+
+
+# 调用函数
+print(my_abs(-10))
+
+
+# 定义一个空函数
+def nop():
+    pass
+
+
+# 函数可以返回多个值，其实只是一个tuple
+def move(x, y, step, angle=0):
+    nx = x + step * math.cos(angle)
+    ny = y - step * math.cos(angle)
+    return nx, ny
+
+
+x, y = move(100, 100, 60, math.pi / 6)
+print(x, y)
+r = move(100, 100, 60, math.pi / 6)
+print(r)
+```
+
+### 3.1 位置参数
+```Python
+def power(x):
+    return x * x
+
+
+print(power(2))
+
+
+def power(x, n):
+    s = 1
+    while n > 0:
+        n = n - 1
+        s = s * x
+    return s
+
+
+print(power(2, 4))
+```
+
+### 3.2 默认参数
+
+- 必选参数在前，默认参数在后
+
+```Python
+# 定义一个默认函数，必选参数在前，默认参数在后
+def enroll(name, gender, age=6, city='Beijing'):
+    print("name：", name)
+    print("gender：", gender)
+    print("age：", age)
+    print("city：", city)
+    print("-------------------------------------")
+
+
+# 默认参数函数调用时，可不传递默认参数，也可传递部分默认参数
+enroll("rookie", "F")
+enroll("wy", "M", 10)
+enroll("wpc", "F", city="zhengzhou")
+
+
+# 不能使用 L = [] 作为默认参数，因为L是一个默认参数，定义函数时已经计算出来了，如果后面改变了值，则下次调用时，默认参数的内容也就改变了
+def add_end(L=None):
+    if L is None:
+        L = []
+    L.append("END")
+    return L
+
+
+print(add_end())
+print(add_end())
+```
+
+### 3.3 可变参数
+
+- 可变参数，实际上接收的还是一个`tuple`
+- 当调用可变参数函数时，可以传入`list`或`tuple`，只需要前面加一个`*`号即可
+
+```Python
+# 定义一个可变参数的函数
+def calc(*numbers):
+    sum = 0
+    for n in numbers:
+        sum = sum + n * n
+    return sum
+
+
+print(calc(1, 2))
+print(calc())
+
+l1 = [1, 2, 3]
+print(calc(*l1))
+
+s1 = (1, 2, 3)
+print(calc(*s1))
+```
+
+### 3.4 关键字参数
+
+- 关键字参数允许你传入0个或任意个含参数名的参数，自动组装成一个`dict`
+
+```Python
+# 定义一个关键字参数函数
+def person(name, age, **kw):
+    print("name:", name, "age:", age, "other:", kw)
+
+
+# 调用关键字参数函数
+person("rookie", 10)
+person("wpc", 20, city='beijing', company='mrrookie')
+
+# 传入一个dict
+d1 = {"city": "beijing", "company": "mrrookie"}
+person("hfg", 10, **d1)
+```
+
+### 3.5 命名关键字参数
+- 如果要限制关键字参数名字，就可以使用命名关键字参数
+
+```Python
+# 定义一个命名关键字函数
+def person(name, age, *, city, job):
+    print(name, age, city, job)
+
+
+person("Jack", 24, city="BeiJing", job="Engineer")
+
+
+# 若不传入命名关键字参数会报错
+# person("Jack", 24)
+
+# 如果函数定义已经有一个可变参数，则后面跟着的命名关键字参数就不再需要一个特殊分隔符 * 了
+def person(name, age, *args, city, job):
+    print(name, age, args, city, job)
+
+person("rookie", 10, 1, 2, 3, 4, city="BeiJing", job="engineer")
+```
+
+### 3.6 参数组合
+
+- 以上所有类型参数可以组合使用，但参数顺序必须是：必选参数，默认参数，可变参数，命名关键字参数、关键字参数
+
+```Python
+def f1(a, b, c=0, *args, **kw):
+    print('a =', a, 'b =', b, 'c =', c, 'args =', args, 'kw =', kw)
+
+def f2(a, b, c=0, *, d, **kw):
+    print('a =', a, 'b =', b, 'c =', c, 'd =', d, 'kw =', kw)
+```
+
+## 四、高级特性
