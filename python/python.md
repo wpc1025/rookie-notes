@@ -361,3 +361,121 @@ def f2(a, b, c=0, *, d, **kw):
 ```
 
 ## 四、高级特性
+
+### 4.1 切片
+```Python
+# 对于list、tuple、字符串都可以使用切片快速获取部分元素
+l1 = list(range(10))
+print(l1)
+print(l1[0:3])
+print(l1[:3])
+print(l1[-2:-1])
+print(l1[-2:])
+
+t1 = tuple(range(10))
+print(t1)
+print(t1[:3])
+print(t1[::2])
+
+s1 = "hello mrrookie"
+print(s1)
+print(s1[0:3])
+```
+
+### 4.2 迭代
+```Python
+from collections.abc import Iterable
+
+# 只要是可迭代的对象，都可以使用 for ... in 进行迭代，如list、tuple、dict、string等
+
+# 对 dict 进行迭代
+d1 = {'a': 1, 'b': 2, 'c': 3}
+for key in d1:
+    print(key)
+for value in d1.values():
+    print(value)
+for k, v in d1.items():
+    print(k, v)
+
+# 对 字符串 进行迭代
+for ch in 'ABC':
+    print(ch)
+
+# 如何判断一个对象是否是可遍历的
+print(isinstance('abc', Iterable))
+print(isinstance([1, 2, 3], Iterable))
+print(isinstance(123, Iterable))
+
+# 通过索引迭代list
+for i, value in enumerate(['A', 'B', 'C']):
+    print(i, value)
+```
+
+### 4.3 列表生成式
+
+```Python
+# 列表生成式，可以快速创建list
+print([x * x for x in range(10)])
+
+# 加上 if 判断，进行筛选
+print([x * x for x in range(10) if x % 2 == 0])
+
+# 使用两层循环
+print([m + n for m in 'ABC' for n in 'XYZ'])
+
+# 使用两个变量生成list
+d1 = {'a': 1, 'b': 2, 'c': 3}
+print([k + '=' + str(v) for k, v in d1.items()])
+
+# 不能再筛选条件中增加else
+# 表达式前用了 if 必须有 else
+# print([x for x in range(10) if x % 2 == 0 else x])
+print([x if x % 2 == 0 else -x for x in range(10)])
+```
+
+### 4.4 生成器
+```Python
+# 一边循环一边计算的机制，称为生成器：generator
+g = (x * x for x in range(10))
+print(g)
+print(next(g))
+
+# 使用 for ... in 迭代生成器，而不是使用next函数
+for x in g:
+    print(x)
+
+
+# 定义 generator 的另一种方式，就是将函数变成生成器
+def fib(max):
+    n, a, b = 0, 0, 1
+    while n < max:
+        yield b
+        a, b = b, a + b
+        n = n + 1
+    return 'done'
+
+
+for x in fib(6):
+    print(x)
+
+# 想要拿到 generator 的 return 返回值，就必须捕获 StopIteration 错误，返回值包含在 StopIteration 的 value 中
+g = fib(6)
+while True:
+    try:
+        x = next(g)
+        print('g:', x)
+    except StopIteration as e:
+        print("Generator return value:", e.value)
+        break
+```
+
+### 4.5 迭代器
+- 可作用于`for`循环的数据类型有以下几种：
+	- 集合数据类型，如`list`、`tuple`、`dict`、`set`、`str`等
+	- `generator`，包括生成器和带`yield`的`generator`
+- 凡是可作用与`for`循环的对象都是`Iterable`类型
+- 凡是可作用于`next()`函数的对象都是`Iterator`类型，表示一个惰性计算的序列
+- 集合数据类型是`Iterable`但不是`Iterator`，但可通过`iter()`函数获得一个`Iterator`对象
+- 可使用`isInstance()`判断一个对象是否是`Iterator`或`Iterable`对象
+
+## 五、函数式编程
