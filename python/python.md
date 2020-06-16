@@ -479,3 +479,41 @@ while True:
 - 可使用`isInstance()`判断一个对象是否是`Iterator`或`Iterable`对象
 
 ## 五、函数式编程
+
+
+
+## 六、面向对象
+### 6.1 类的定义与实例创建
+```Python
+# 类的定义
+class Student(object):
+    def __init__(self, name, score):
+        self.name = name
+        self.score = score
+
+    def print_score(self):
+        print("%s : %s" % (self.name, self.score))
+
+
+bart = Student('wpc', 100)
+bart.print_score()
+```
+
+### 6.2 访问限制
+- 属性名前增加`__`即可阻止外部访问
+
+```Python
+class Student(object):
+    def __init__(self, name, score):
+        self.__name = name
+        self.__score = score
+
+    def print_score(self):
+        print("%s : %s" % (self.__name, self.__score))
+
+
+bart = Student('wpc', 100)
+bart.print_score()
+# print(bart.__name)
+# print(bart._Student__name)
+```
