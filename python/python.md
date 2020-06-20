@@ -517,3 +517,344 @@ bart.print_score()
 # print(bart.__name)
 # print(bart._Student__name)
 ```
+
+### 6.3 继承和多态
+```Python
+# 继承与多态
+
+class Animal(object):
+    def run(self):
+        print("Animal is running...")
+
+
+class Dog(Animal):
+    def run(self):
+        print("Dog is running...")
+
+    def eat(self):
+        print("Eating meat...")
+
+
+class Cat(Animal):
+    def run(self):
+        print("Cat is running...")
+
+
+dog = Dog()
+dog.run()
+cat = Cat()
+cat.run()
+
+# 一个子类对象既是子类类型，也是父类类型
+print(isinstance(cat, Animal))
+print(isinstance(cat, Cat))
+
+
+def run_twice(animal):
+    animal.run()
+    animal.run()
+
+
+run_twice(dog)
+run_twice(cat)
+
+
+# 对于Python来说，run_twice 方法不一定需要传入 Animal 类型，只需要保证传入的对象有一个 run() 方法即可
+class Timer(object):
+    def run(self):
+        print("Start...")
+
+
+run_twice(Timer())
+```
+### 6.4 获取对象信息
+- 获取对象类型，可以使用`type()`或`isinstance()`
+```Python
+class Animal(object):
+    pass
+
+
+class Dog(Animal):
+    pass
+
+
+# 判断对象类型，可以使用 type 函数
+print(type(123))
+print(type('str'))
+print(type(None))
+print(type(abs))
+print(type(Animal()))
+print(type(123) == type(456))
+print(type(123) == int)
+
+# 使用 isinstance
+print(isinstance(Dog(), Animal))
+print(isinstance(Animal(), (Animal, Dog)))
+```
+- 获取对象的属性和方法，可以使用`dir()`函数
+- 可以通过`hasattr()`、`setattr()`、`getattr()`函数，操作对象的属性和方法
+```Python
+# 使用 dir 函数，可以获得一个对象的所有属性和方法
+print(dir('ABC'))
+
+# len() 函数其实是调用对象的 __len__() 方法
+print(len('ABC'))
+print('ABC'.__len__())
+
+
+# 自己的类也可以实现 len() 方法，只需要自己写一个 __len__() 方法
+class MyDog(object):
+    def __len__(self):
+        return 100
+
+
+print(len(MyDog()))
+
+
+# 配合 getattr()、setattr()、hasattr()，可以直接操作一个对象的状态
+class MyObject(object):
+    def __init__(self):
+        self.x = 9
+
+    def power(self):
+        return self.x * self.x
+
+
+myObject = MyObject()
+print(hasattr(myObject, 'x'))
+print(getattr(myObject, 'x'))
+print(hasattr(myObject, 'y'))
+print(setattr(myObject, 'y', 19))
+print(hasattr(myObject, 'y'))
+print(getattr(myObject, 'z', 404))
+```
+### 6.5 实例属性和类属性
+- 给实例绑定属性的方法是通过实例变量，或者通过`self`变量
+- 直接在`class`中定义属性，这种属性是类属性
+```Python
+class Student(object):
+    name = 'Student'
+
+
+s = Student()
+print(s.name)  # 类属性
+print(Student.name)  # 类属性
+s.name = 'rookie'  # 实例属性赋值
+print(s.name)  # 实例属性
+print(Student.name)  # 类属性
+del s.name  # 删除实例属性
+print(s.name)  # 类属性
+```
+## 七、面向对象高级编程
+### 7.1 __slots__
+- `__slots__`变量，限制该`class`实例能添加的属性
+- `__slots__`变量，对子类不起作用
+```Python
+class Student(object):
+    __slots__ = ('name', 'age')
+
+
+class GraduateStudent(Student):
+    pass
+
+
+s = Student()
+s.name = 'rookie'
+s.age = 10
+# s.score = 100 # 会报错
+print(s.name, s.age)
+
+g = GraduateStudent()
+g.score = 100
+print(g.score)
+```
+### 7.2 @property
+- `@property`装饰器负责把一个方法变成属性进行调用
+- 还可以定义只读属性，只需要不定义`setter`方法即可
+```Python
+class Student(object):
+    @property
+    def birth(self):
+        return self._birth
+
+    @birth.setter
+    def birth(self, value):
+        self._birth = value
+
+    @property
+    def age(self):
+        return 2020 - self._birth
+
+s = Student()
+s.birth = 1993
+print(s.age)
+```
+### 7.3 多重继承
+
+
+
+### 7.4 定制类
+#### 7.4.1 __str__ 和 __repr__
+- `__str__`返回用户看到的字符串
+- `__repr__`返回程序开发者看到的字符串
+```Python
+class Student(object):
+    def __init__(self, name):
+        self.name = name
+
+    def __str__(self):
+        return 'Student object (name=%s)' % self.name
+
+    __repr__ = __str__
+
+
+s = Student('rookie')
+print(s)
+```
+#### 7.4.2 __iter__ 和 __next__
+- 如果一个类想被用于`for ... in`循环，类似`list`或`tuple`那样，就必须实现一个`__iter__()`方法，该方法返回一个迭代对象，然后，Python的`for`循环就会不断调用该迭代对象的`__next__()`方法拿到循环的下一个值，直到遇到`StopIteration`错误时退出循环。
+```Python
+class Fib(object):
+    def __init__(self):
+        self.a, self.b = 0, 1
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        self.a, self.b = self.b, self.a + self.b
+        if self.a > 1000:
+            raise StopIteration()
+        return self.a
+
+
+for n in Fib():
+    print(n)
+```
+#### 7.4.3 __getitem__
+- 要表现得像list那样按照下标取出元素以及切片，需要实现`__getitem__()`方法
+```Python
+class Fib(object):
+    def __init__(self):
+        self.a, self.b = 0, 1
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        self.a, self.b = self.b, self.a + self.b
+        if self.a > 1000:
+            raise StopIteration()
+        return self.a
+
+    def __getitem__(self, n):
+        if isinstance(n, int):
+            for x in range(n):
+                self.a, self.b = self.b, self.a + self.b
+            return self.a
+        if isinstance(n, slice):
+            start = n.start
+            stop = n.stop
+            if start is None:
+                start = 0
+            self.a, self.b = 1, 1
+            L = []
+            for x in range(stop):
+                if x >= start:
+                    L.append(x)
+                self.a, self.b = self.b, self.a + self.b
+            return L
+
+
+for n in Fib():
+    print(n)
+
+print(Fib()[5])
+
+print(Fib()[0:5])
+
+```
+### 7.5 枚举类
+```Python
+from enum import Enum, unique
+
+Month = Enum('Month', ('Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'))
+
+
+@unique
+class Weekday(Enum):
+    Sun = 0
+    Mon = 1
+    Tue = 2
+    Wed = 3
+    Thu = 4
+    Fri = 5
+    Sat = 6
+
+
+print(Weekday.Mon)
+print(Weekday['Tue'])
+print(Weekday.Tue.value)
+print(Weekday(1))
+for name, member in Weekday.__members__.items():
+    print(name, '=>', member)
+```
+
+### 7.6 TODO使用元类
+
+## 八、错误、调试和测试
+### 8.1 错误处理
+- 捕获异常的代码示例如下
+```Python
+try:
+	doSomeThing()
+except BaseException as e:
+	logging.exception(e)
+else:
+	print('无异常发生')
+finally:
+	print('无论是否有异常都会执行')
+```
+- 通过`raise`语句可以抛出一个错误，如`raise ValueError('input error')`
+
+```Python
+import logging
+
+try:
+    print('try...')
+    n = 0
+    if n == 0:
+        raise ZeroDivisionError()
+    r = 10 / 2
+    print('result', r)
+except ZeroDivisionError as e:
+    logging.exception(e)
+    print('exception', e)
+    raise ValueError('input error...')
+else:
+    print('no error...')
+finally:
+    print('finally...')
+print('END')
+```
+## 九、IO编程
+### 9.1 文件读写
+```Python
+# 读取文件
+with open('C:\\Users\\rookie\\Desktop\\记录.txt', 'r', encoding='utf-8') as f:
+    print(f.read())
+
+# 按行读取文件
+with open('C:\\Users\\rookie\\Desktop\\记录.txt', 'r', encoding='utf-8') as f:
+    for line in f.readlines():
+        print(line.strip('\n'))
+
+# 读取二进制文件
+with open('c:\\Users\\rookie\\Pictures\\车机拉取蓝牙钥匙时序图.jpg', 'rb') as f:
+    print(f.read())
+
+# 追加模式写文件
+with open('C:\\Users\\rookie\\Desktop\\test.txt', 'a', encoding='utf-8') as f:
+    f.write('rookie\n')
+```
+### 9.2 StringIO和BytesIO
