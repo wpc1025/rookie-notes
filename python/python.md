@@ -858,3 +858,123 @@ with open('C:\\Users\\rookie\\Desktop\\test.txt', 'a', encoding='utf-8') as f:
     f.write('rookie\n')
 ```
 ### 9.2 StringIO和BytesIO
+- `StringIO`在内存中读写字符串
+```Python
+from io import StringIO
+
+# 写入
+f = StringIO()
+f.write('hello')
+f.write(' ')
+f.write(' Python.')
+print(f.getvalue())
+
+# 读取
+m = StringIO('Hello!\nHi!\nGoodBye!')
+while True:
+    s = m.readline()
+    if s == '':
+        break
+    print(s.strip())
+```
+- `BytesIO`在内存中读写`bytes`
+```Python
+from io import BytesIO
+
+# 写入
+f = BytesIO()
+f.write('中文'.encode('utf-8'))
+print(f.getvalue())
+
+# 读取
+m = BytesIO(b'\xe4\xb8\xad\xe6\x96\x87')
+print(m.read())
+```
+### 9.3 操作文件和目录
+```Python
+import os
+
+# 操作系统类型
+print(os.name)
+
+# 详细的系统信息-不支持windows系统
+# print(os.uname())
+
+# 环境变量
+print(os.environ)
+print(os.environ.get('PATH'))
+
+# 查看当前目录的绝对路径
+print(os.path.abspath('.'))
+
+# 创建新目录 并 删除
+newDir = os.path.join('.', 'testdir')
+os.mkdir(newDir)
+os.rmdir(newDir)
+
+# 把一个路径拆分成两部分，后一部分总是最后级别的目录和文件名
+print(os.path.split('E:\\code\\myself\\python\\practice-python'))
+print(os.path.splitext('E:\\code\\myself\\python\\practice-python\\osdemo.py'))
+
+# 重命名
+os.rename('./demo', './demo2')
+os.rename('./demo2', './demo')
+
+# 删除文件
+# os.remove('./test.py')
+
+# 列出当前目录下的所有目录
+print([x for x in os.listdir('.') if os.path.isdir(x)])
+# 列出所有.py文件
+print([x for x in os.listdir('.') if os.path.isfile(x) and os.path.splitext(x)[1] == '.py'])
+```
+### 9.4 序列化
+- 把变量从内存中变为可存储或传输的过程称之为序列化，`pickling`
+- 把变量内容从序列化的对象重新读到内存称之为反序列化，即`unpickling`
+```Python
+import pickle
+
+d = dict(name='rookie', age=20, score=100)
+with open('./dump.txt', 'wb') as f:
+    pickle.dump(d, f)
+
+with open('./dump.txt', 'rb') as f:
+    d2 = pickle.load(f)
+    print(d2)
+```
+- `json`模块的使用
+```Python
+import json
+
+d = dict(name='rookie', age=20, score=100)
+jsonStr = json.dumps(d)
+print(jsonStr)
+
+d2 = json.loads(jsonStr)
+print(d2['name'])
+print(d2)
+
+
+# 对象的序列化和反序列化
+class Student(object):
+    def __init__(self, name, age, score):
+        self.name = name
+        self.age = age
+        self.score = score
+
+
+s1 = Student('rookie', 30, 100)
+jsonStr2 = json.dumps(s1, default=lambda obj: obj.__dict__)
+print(jsonStr2)
+
+
+def dict2Student(d):
+    return Student(d['name'], d['age'], d['score'])
+
+
+print(json.loads(jsonStr2, object_hook=dict2Student))
+```
+
+
+
+
