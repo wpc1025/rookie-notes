@@ -138,9 +138,9 @@ typedef struct dict{
 - 避免`rehash`对服务器性能造成影响，服务器分多次、渐进式地将`ht[0]`里面的键值对慢慢地`rehash`到`ht[1]`
 - 步骤
 	1. 为ht[1]分配空间，让字典同时持有ht[0]和ht[1]两个哈希表
-	2. 字典中维护索引计数器rehashindex，将其值设置为0，表示rehash开始
+	2. 字典中维护索引计数器`rehashindex`，将其值设置为0，表示rehash开始
 	3. rehash期间，每次对字典进行添加、删除、查找或更新，程序除执行指定操作，还会将ht[0]哈希表中rehashindex索引上的所有键值对rehash到ht[1]
-	4. 在某个时间点，ht[0]的所有键值对都会被rehash到ht[1]，这时rehashindex置为-1，表示rehash结束
+	4. 在某个时间点，ht[0]的所有键值对都会被rehash到ht[1]，这时`rehashindex`置为-1，表示rehash结束
 
 ## 四、 跳跃表
 
