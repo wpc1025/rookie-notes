@@ -243,6 +243,213 @@
 
 ### 三、文件
 
+MySQL数据库和InnoDB存储引擎的各种类型文件如下：
+
+- **参数文件**：告诉MySQL实例启动时在哪里可以找到数据库文件，指定初始化参数
+- **日志文件**：用来记录MySQL实例对某种条件作出响应时写入的文件，如错误日志文件、二进制日志文件、慢查询日志文件、查询日志文件等
+- **socket文件**：当用`UNIX`域套接字方式进行连接时需要的文件
+- **pid文件**：MySQL实例的PID文件
+- **MySQL表结构文件**：用来存储MySQL表结构定义文件
+- **存储引擎文件**：不同的存储引擎保存数据的文件不同，这些文件存储了数据和索引等数据
+
+#### 3.1 参数文件
+
+- MySQL实例启动时，按照一定的顺序寻找参数文件
+- 参数文件定义了数据库各种文件所在位置以及指定某些初始化参数
+- 文本方式存储
+- 可通过`mysql --help | grep my.cnf`命令查找参数文件位置
+
+
+
+##### 3.1.1 参数
+
+可通过以下命令查询参数值：
+
+- `show variables like 'innodb_buffer%'`
+
+##### 3.1.2 参数类型
+
+- **动态参数**：意味着可以在MySQL实例运行期间修改参数的值
+- **静态参数**：在整个MySQL实例运行期间都不可以进行修改
+
+
+
+设置参数值得命令如下：
+
+```mysql
+set
+| [global | session] system_var_name = expr
+| [@@global. | @@session. | @@]system_var_name = expr
+```
+
+
+
+```mysql
+mysql> set read_buffer_size = 524288;
+Query OK, 0 rows affected (0.00 sec)
+
+mysql> select @@session.read_buffer_size;
++----------------------------+
+| @@session.read_buffer_size |
++----------------------------+
+|                     524288 |
++----------------------------+
+1 row in set (0.00 sec)
+
+mysql> select @@global.read_buffer_size;
++---------------------------+
+| @@global.read_buffer_size |
++---------------------------+
+|                     65536 |
++---------------------------+
+1 row in set (0.00 sec)
+
+mysql> set @@global.read_buffer_size = 1048576;
+Query OK, 0 rows affected (0.01 sec)
+
+mysql> select @@session.read_buffer_size;
++----------------------------+
+| @@session.read_buffer_size |
++----------------------------+
+|                      65536 |
++----------------------------+
+1 row in set (0.00 sec)
+
+mysql> select @@global.read_buffer_size;
++---------------------------+
+| @@global.read_buffer_size |
++---------------------------+
+|                   1048576 |
++---------------------------+
+1 row in set (0.00 sec)
+
+mysql>
+```
+
+#### 3.2 日志文件
+
+1. 错误日志（error log）
+2. 二进制日志（bin log）
+3. 慢查询日志（slow query log）
+4. 查询日志（log）
+
+
+
+##### 3.2.1 错误日志
+
+- 错误日志对MySQL的启动、运行、关闭过程进行了记录
+
+- 通过以下命令可以知道错误文件的存储位置：
+
+  - `show variables like 'log_error';`
+
+  ```mysql
+  mysql> show variables like 'log_error';
+  +---------------+-----------------------+
+  | Variable_name | Value                 |
+  +---------------+-----------------------+
+  | log_error     | .\LAPTOP-RDPVKIFG.err |
+  +---------------+-----------------------+
+  1 row in set, 1 warning (0.00 sec)
+  
+  mysql> system hostname;
+  LAPTOP-RDPVKIFG
+  mysql>
+  ```
+
+##### 3.2.2 慢查询日志
+
+慢查询日志可帮助DBA定位可能存在问题的SQL语句,从而进行SQL语句层面的优化.
+
+```mysql
+mysql> show variables like '%slow%';
++---------------------------+--------------------------+
+| Variable_name             | Value                    |
++---------------------------+--------------------------+
+| log_slow_admin_statements | OFF                      |
+| log_slow_extra            | OFF                      |
+| log_slow_slave_statements | OFF                      |
+| slow_launch_time          | 2                        |
+| slow_query_log            | ON                       |
+| slow_query_log_file       | LAPTOP-RDPVKIFG-slow.log |
++---------------------------+--------------------------+
+6 rows in set, 1 warning (0.00 sec)
+
+mysql>
+```
+
+`long_query_time`：运行时间超过该参数值得SQL语句记录到慢查询日志中
+
+`log_queries_not_using_indexes`：该参数控制若运行的SQL没有使用索引，是否记录到慢查询日志中
+
+`log_throttle_queries_not_using_indexes`：表示每分钟允许记录到慢查询日志且未使用索引的SQL语句次数，默认为0，没有限制
+
+可通过`mysqldumpslow`命令分析慢查询日志
+
+`log_output`：指定了慢查询输出的格式，默认为`FILE`，可设为`TABLE`，将慢查询日志记录到mysql架构下的`slow_log`表中
+
+##### 3.2.3 查询日志
+
+记录了所有对MySQL数据库请求的信息，无论这些请求是否得到了正确的执行
+
+`general_log`
+
+`general_log_file`
+
+
+
+##### 3.2.4 二进制文件
+
+记录了对MySQL数据库执行更改的所有操作，不包括`SELECT`和`SHOW`这类操作
+
+二进制日志主要有以下作用：
+
+- **恢复**：某些数据的恢复需要二进制文件
+- **复制**：通过复制和执行二进制日志使一台远程的MySQL数据库与另一台MySQL数据库进行实时同步
+- **审计**：用户可以通过二进制日志中的信息来进行审计，判断数据库是否收到了注入攻击
+
+`log_bin`：是否启动二进制日志
+
+`max_bin_log_size`：指定了单个二进制文件的最大值，超过该值，则产生新的二进制日志文件，后缀加1，并记录到`.index`文件
+
+`binlog_cache_size`：当使用事务的表存储引擎时，所有未提交的二进制日志会被记录到一个缓冲中去，等该事务提交时直接将缓冲中的二进制日志写入二进制日志文件中去，该缓冲的大小由`binlog_cache_size`控制
+
+`sync_binlog`：表示每写缓冲多少次就同步到磁盘
+
+`binlog-do-db`：表示需要写入哪些库的日志
+
+`binlog-ignore-db`：表示需要忽略哪些库的日志
+
+`log-slave-update`：如果当前数据库是复制中的`slave`角色，则不会将从`master`取得并执行的二进制日志写入自己的二进制日志文件中去，如果需要写入，要设置该参数
+
+`binlog_format`：表示记录二进制日志的格式
+
+- `STATEMENT`：记录的是日志的逻辑SQL语句
+- `ROW`：记录表的行更改情况
+- `MIXED`：默认采用`STATEMENT`模式，但有一些情况会使用`ROW`格式
+
+
+
+#### 3.3 套接字文件
+
+采用`UNIX`域套接字方式时会有一个套接字文件
+
+#### 3.4 pid文件
+
+MySQL进程ID存储文件
+
+#### 3.5 表结构定义文件
+
+不论表采用何种存储引擎，MySQL都会有一个`frm`后缀名文件，用于记录该表的表结构定义，也可用来存储视图定义
+
+#### 3.6 InnoDB存储引擎文件
+
+##### 3.6.1 表空间文件
+
+
+
+
+
 ### 四、表
 
 ### 五、索引和算法
