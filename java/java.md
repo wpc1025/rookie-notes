@@ -44,3 +44,18 @@ Java
 
 
 [Java枚举（enum）全面解读](https://www.jianshu.com/p/0d69c36a723b)
+
+
+
+## 四、IO
+
+> 输入输出都是相对于程序来讲的
+>
+> Java中将数据的输入输出抽象为流，流是一组有顺序的、单向的、有起点和终点的数据集合
+>
+> 流的最小数据单元可以为字节或字符
+
+
+
+[Java基础之详解Java IO](https://www.cnblogs.com/CQqf/p/10795656.html)
+
