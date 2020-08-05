@@ -558,7 +558,15 @@ InnoDB采用将存储的数据按表空间进行存放的设计
 
 
 
+#### 4.5 约束
 
+对于InnoDB存储引擎本身而言，提供了以下几种约束：
+
+- Primary Key
+- Unique Key
+- Foreign Key
+- Default
+- NOT NULL
 
 
 
