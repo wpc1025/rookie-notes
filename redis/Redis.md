@@ -469,3 +469,221 @@ struct redisServer{
 
 ## 十一、哨兵
 
+
+
+## 十二、集群
+
+Redis提供的分布式数据库解决方案，集群通过分片来进行数据共享，并提供复制和故障转移的功能
+
+
+
+### 12.1 节点
+
+一个Redis集群通常由多个节点组成，刚开始时，每个节点都是相互独立的，都处于一个只包含自己的集群当中。
+
+连接各个节点的工作可以使用`CLUSTER MEET`命令来完成，命令格式如下：
+
+```
+CLUSTER MEET <ip> <port>
+
+# 向一个节点node发送CLUSTER MEET 命令，可以让node节点与ip和port所指定的节点进行握手，握手成功时，node节点就会将ip和port所指定的节点添加到node节点当前所在的集群中
+```
+
+#### 12.1.1 启动节点
+
+Redis服务器在启动时会根据`cluster-enable`配置选项是否为`yes`来决定是否开启服务器的集群模式。
+
+集群模式下，节点将只有在集群模式下用到的数据保存到`cluster.h/clusterNode`结构、`cluster.h/clusterLink`结构、`cluster.h/clusterState`结构中。
+
+
+
+#### 12.1.2 集群数据结构
+
+`clusterNode`结构保存了一个节点的当前状态，比如节点的创建时间、节点的名字、节点当前的配置纪元、节点的IP地址和端口号等，其中`link`属性是一个`clusterLink`结构，保存了连接节点所需的各种信息，比如套接字描述符，输入缓冲区和输出缓冲区。
+
+```c
+struct clusterNode{
+	// 创建节点的时间
+	mstime_t ctime;
+	
+	// 节点的名字
+	char name[REDIS_CLUSTER_NAMELEN];
+	
+	// 节点标识（标识节点角色，如主或从节点，标识节点状态，如上线或下线）
+	int flags;
+	
+	// 节点当前的配置纪元，用于实现故障转移
+	uint64_t configEpoch;
+	
+	// 节点的IP地址
+	char ip[REDISE_IP_STR_LEN];
+	
+	// 节点的端口号
+	int port;
+	
+	// 保存连接节点所需的有关信息
+	clusterLink *link;
+	
+	//...
+};
+
+typedef struct clusterLink{
+	// 连接创建时间
+	mstime_t ctime;
+	
+	// TCP套接字描述符
+	int fd;
+	
+	// 输出缓冲区，保存着等待发送给其他节点的消息
+	sds sndbuf;
+	
+	// 输入缓冲区，保存着从其他节点接收到的消息
+	sds rcvbuf;
+	
+	// 与这个连接相关联的节点，如果没有的话就为NULL
+	struct clusterNode *node;
+	
+}clusterLink;
+```
+
+
+
+每个节点都保存着一个`clusterState`结构，记录当前节点视角下，集群目前所处的状态，例如集群是在线还是下线、集群包含多少个节点，集群当前的配置纪元等。
+
+```C
+typedef struct clusterState{
+    // 指向当前节点的指针
+    clusterNode *myself;
+    
+    // 集群当前的配置纪元，用于故障转移
+    uint64_t currentEpoch;
+    
+    // 集群当前的状态，是上线还是下线
+    int state;
+    
+    // 集群中至少处理这一个槽的节点数量
+    int size;
+    
+    // 集群节点名单
+    dict *nodes;
+    
+    //...
+}clusterState;
+```
+
+
+
+#### 12.1.3 CLUSTER MEET命令的实现
+
+`CLUSTER MEET <ip> <port>`
+
+节点A为收到命令的节点，节点B为ip、port代表的节点，过程如下：
+
+1. 节点A为节点B创建一个`clusterNode`结构，并将该结构添加到自己的`clusterState.nodes`字典里面
+2. 节点A向节点B发送一个`MEET`消息
+3. 节点B收到节点A发出的`MEET`消息，节点B为节点A创建一个`clusterNode`结构，并将该结构添加到自己的`clusterState.nodes`字典里面。
+4. 节点B向节点A返回一条`PONG`消息
+5. 节点A收到节点B返回的`PONG`消息，知道节点B已经成功接收到自己发送的`MEET`消息
+6. 节点A向节点B发送一条`PING`消息
+7. 节点B收到节点A发送的`PING`消息，知道节点A已经成功收到自己返回的`PONG`消息，握手完成
+8. 之后，节点A会将节点B的信息通过`Gossip`协议传播给集群中的其他节点，让其他节点与节点B进行握手，最终，节点B会被集群中的所有节点认识
+
+![节点的握手过程](./12-1.png)
+
+
+
+### 12.2 槽指派
+
+集群的整个数据库被分为16384个槽，数据库中的每个键都属于这16384个槽的其中一个，集群中的每个节点可以处理0个或者最多16384个槽。
+
+当16384个槽都有节点处理时，集群处于上线状态，否则，处于下线状态。
+
+```
+CLUSTER ADDSLOTS <slot> [slot ...]
+
+// 将一个或多个槽指派给节点负责
+```
+
+
+
+#### 12.2.1 记录节点的槽指派信息
+
+`clusterNode`结构中的`slots`属性和`numslots`属性记录了节点负责处理哪些槽：
+
+```c
+struct clusterNode{
+    // ...
+    
+    unsigned char slots[16384/8];
+    
+    int numslots;
+    
+    // ...
+}
+```
+
+`slots`属性是一个二进制位数组，以0为起始索引，16383为终止索引，若索引对应二进制位为1，则代表该节点负责处理，否则不处理。
+
+对于程序检查节点是否处理某个槽，或者将某个槽指派给节点负责，这两个动作的复杂度都是O(1)
+
+
+
+#### 12.2.2 传播节点的槽指派信息
+
+一个节点除了会将自己负责处理的槽记录在`clusterNode.slots`外，还会将自己的`slots`数组通过消息发送给集群中的其他节点，以此来告知其他节点自己目前负责处理哪些槽。其他节点会在自己记录的`clusterState.nodes`字典中查找节点B对应的`clusterNode`结构，并将结构中对应的`slots`数组进行保存或者更新。
+
+
+
+#### 12.2.3 记录集群所有槽的指派信息
+
+`clusterState`的`slots`数组记录了集群中所有16384个槽的指派信息，每个数组项都指向一个`clusterNode`结构。
+
+存储在`clusterState.slots`中是为了解决以下问题：
+
+1. 为了快速知道槽`i`是否被指派，或者槽`i`指派给了哪个节点
+
+存储在`clusterNode.slots`中是为了解决以下问题：
+
+1. 当程序需要将某个节点的槽指派信息通过消息发送给其他节点时，程序只需要将`clusterNode.slots`数组整个发送出去就可以了，否则，需要遍历`clusterState.slots`，找到节点处理的槽信息，才能发送出去。
+
+
+
+#### 12.2.4 CLUSTER ADDSLOTS命令的实现
+
+设置`clusterState.slots`属性及`clusterNode.slots`属性，若其中一个槽已经指派了节点，则直接返回失败。
+
+
+
+### 12.3 在集群中执行命令
+
+![判断客户端是否转向的流程](./12-2.png)
+
+
+
+#### 12.3.1 计算键属于哪个槽
+
+`CRC16(key) & 16383`
+
+计算键的CRC-16校验和，然后与16383进行与运算
+
+
+
+### 12.4 重新分片
+
+Redis集群的重新分片操作可以将任意数量已经指派给某个节点的槽改派给另一个节点，并且相关槽所属的键值对也会从源节点被移动到目标节点。可在线进行，不需要下线，且源节点和目标节点都可以继续处理命令请求。
+
+
+
+Redis提供了重新分片所需的所有命令，而集群管理软件`redis-trib`则通过向源节点和目标节点发送命令来进行重新分片操作：
+
+1. `redis-trib`向目标节点发送`CLUSTER SETSLOT <slot> IMPORTING <source_id>`命令，让目标节点准备好从源节点导入属于槽slot的键值对
+2. `redis-trib`向源节点发送`CLUSTER SETSLOT <slot> MIGRATING <target_id>`命令，让源节点准备好将属于槽slot的键值对迁移至目标节点
+3. `redis-trib`向源节点发送`CLUSTER GETKEYSINSLOT <slot> <count>`命令，获得最多`count`个属于槽的键值对的键名
+4. 对于步骤3获得的每个键名，`redis-trib`都向源节点发送一个`MIGRATE <target_id> <target_port> <key_name> 0 <timeout>`命令，将被选中的键原子的从源节点迁移到目标节点
+5. 重新执行步骤3和步骤4，直到所有键值对迁移完毕
+6. `redis-trib`向任意一个节点发送`CLUSTER SETSLOT <slot> NODE <target_id>`命令，将槽指派给目标节点，这一指派信息会通过消息发送给整个集群，最终集群中的所有节点都知道槽已经指派给了目标节点
+
+![键迁移过程](./12-3.png)
+
+### 12.5 ASK错误
+
