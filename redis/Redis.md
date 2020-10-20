@@ -687,3 +687,53 @@ Redis提供了重新分片所需的所有命令，而集群管理软件`redis-tr
 
 ### 12.5 ASK错误
 
+重分片期间，属于被迁移槽的一部分键值对保存在源节点里面，另一部分键值对保存在目标节点里面。当客户端向源节点发送一个与数据库有关的命令，并且命令要处理的数据库键恰好就属于正在被迁移的槽时，若源节点未能在自己的数据库里面找到指定的键，源节点会向客户端发送一个`ASK`错误，引导客户端转向正在导入槽的目标节点，并再次发送之前想要执行的命令。
+
+
+
+#### 12.5.1 CLUSTER SETSLOT IMPORTING命令的实现
+
+`clusterState`结构的`importint_slots_from`数组记录了当前节点正在从其他节点导入的槽
+
+```c
+typedef struct clusterState{
+    // ...
+    
+    clusterNode *importing_slots_from[16384];
+    
+    // ...
+}clusterState;
+
+# 如果 importing_slots_from[i] 的值不为NULL，而是指向一个 clusterNode 结构，那么表示当前节点正在从 clusterNode 所代表的节点导入槽 i
+```
+
+
+
+#### 12.5.2 CLUSTER SETSLOTS MIGRATING命令的实现
+
+`clusterState`结构的`migrating_slots_to`数组记录了当前节点正在迁移至其他节点的槽：
+
+```c
+typedef struct clusterState{
+    // ...
+    
+    clusterNode *migrating_slots_to[16384];
+    
+    // ...
+}clusterState;
+
+# 如果 migrating_slots_to[i] 的值不为NULL，而是指向一个 clusterNode 结构，那么表示当前节点正在将槽 i 迁移至 clusterNode 所代表的节点
+```
+
+
+
+#### 12.5.3 ASK错误和MOVED错误的区别
+
+`MOVED`：代表槽的负责权已经从一个节点转移到了另一个节点，在客户端收到关于槽`i`的`MOVED`错误之后，客户端每次遇到关于槽`i`的命令请求时，都可以直接将命令请求直接发送至`MOVED`错误所指向的节点。
+
+`ASK`：ASK错误只是两个节点在迁移槽的过程中使用的一种临时错误，在客户端收到槽`i`的`ASK`错误之后，客户端只会在接下来的一次命令请求中将关于槽`i`的命令请求发送给`ASK`错误所指示的节点，但这种转向不会对客户端今后发送槽`i`的命令请求产生任何影响。
+
+
+
+### 12.6 复制和故障转移
+
