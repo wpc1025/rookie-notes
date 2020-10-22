@@ -473,7 +473,142 @@ struct redisServer{
 
 
 
+### 11.1 启动并初始化Sentinel
 
+```
+redis-sentinel /path/to/your/sentinel.conf
+redis-server /path/to/your/sentinel.conf --sentinel
+
+以上两个命令都可以启动一个Sentinel
+```
+
+当一个`Sentinel`启动时，需要执行以下步骤：
+
+1. 初始化服务器
+2. 将普通Redis服务器使用的代码替换成Sentinel专用代码
+3. 初始化Sentinel状态
+4. 根据给定的配置文件，初始化Sentinel的监视主服务器列表
+5. 创建连向主服务器的网络连接
+
+
+
+#### 11.1.1 初始化服务器
+
+启动`Sentinel`的第一步，就是初始化一个普通的Redis服务器，但初始化时不会载入RDB文件或者AOF文件。
+
+`Sentinel`模式下Redis服务器主要功能的使用情况：
+
+1. 数据库键值对方面的命令，不使用Set、Del、FlushDB
+2. 不使用事务命令
+3. 不使用脚本命令，如`EVAL`
+4. 不使用持久化命令`SAVE`和`BGSAVE`
+5. 不使用AOF持久化命令，如`BGREWRITEAOF`
+6. 复制命令，如`SLAVEOF`，Sentinel内部可以使用，但是客户端不可以使用
+
+
+
+#### 11.1.2 使用Sentinel专用代码
+
+将一部分普通的Redis服务器使用的代码替换成Sentinel专用代码，如：
+
+1. 普通服务器使用`redis.h/REDIS_SERVERPORT`常量值作为服务器端口，而Sentinel使用`sentinel.c/REDIS_SENTINEL_PORT`常量值作为服务器端口
+2. 普通服务器使用`redis.c/redisCommandTable`作为服务器的命令表，而Sentinel使用`sentinel.c/sentinelcmds`作为服务器的命令表，这也解释了为什么在Sentinel模式下，部分命令不能使用的原因
+
+
+
+#### 11.1.3 初始化Sentinel状态
+
+服务器会初始化一个`sentinel.c/sentinelState`结构，这个结构保存了服务器中所有和Sentinel功能有关的状态
+
+```c
+struct sentinelState{
+    
+    // 当前纪元，用于实现故障转移
+    uint64_t current_epoch;
+    
+    // 保存了被这个Sentinel监视的主服务器
+    dict *masters;
+    
+   // ...
+}sentinel;
+```
+
+
+
+#### 11.1.4 初始化Sentinel状态的masters属性
+
+Sentinel状态的`masters`字典记录了所有被Sentinel监视的主服务器的相关信息，其中：
+
+- 字典的键是被监视主服务器的名字
+- 字典的值则是被监视主服务器对应的`sentinel.c/sentinelRedisInstance`结构
+
+每个`sentinelRedisInstance`结构代表一个被Sentinel监视的Redis服务器实例，可以是主服务器、从服务器或者另外一个Sentinel
+
+对Sentinel状态的初始化将引发对`masters`属性的初始化，而`masters`字典的初始化是根据被载入的Sentinel配置文件来进行的
+
+
+
+#### 11.1.5 创建连向主服务器的网络连接
+
+Sentinel会创建两个连向主服务器的异步网络连接：
+
+1. 命令连接，专门用于向主服务器发送命令，并接收命令回复
+2. 订阅连接，专门用于订阅主服务器的`__sentinel__:hello`频道
+
+
+
+### 11.2 获取主服务器信息
+
+Sentinel默认以10秒一次的频率，通过命令连接向被监视的主服务器发送`INFO`命令，分析`INFO`命令的回复来获取主服务器的当前信息：
+
+1. 关于主服务器本身的信息
+2. 关于主服务器属下所有从服务器的信息
+
+分析完成后，会更新主服务器、从服务器的结构信息
+
+
+
+### 11.3 获取从服务器信息
+
+当Sentinel发现主服务器有新的从服务器出现时，Sentinel除了会向这个新的从服务器创建相应的实例结构之外，Sentinel还会创建连接到从服务器的命令连接和订阅连接。在创建命令连接之后，Sentinel在默认情况下，会以每十秒一次的频率通过命令连接向从服务器发送`INFO`信息，分析回复内容更新从服务器信息。
+
+
+
+### 11.4 向主服务器和从服务器发送信息
+
+默认情况下，Sentinel会以每两秒一次的频率，通过命令连接向所有被监视的主服务器和从服务器发送命令。
+
+
+
+### 11.5 接收来自主服务器和从服务器的频道信息
+
+
+
+### 11.6 检测主观下线状态
+
+默认情况下，Sentinel以每秒一次的频率向所有与它创建了命令连接的实例发送`PING`消息，并通过回复判断实例是否在线
+
+若在Sentinel配置文件配置的`down-after-milliseconds`毫秒内，无回复或者是无效回复，那么表示这个实例进入主观下线状态
+
+
+
+### 11.7 检查客观下线状态
+
+当`Sentinel`将一个主服务器判断为主观下线之后，为了确认这个主服务器是否真的下线，会向同样监视这一主服务器的其他Sentinel进行询问，看他们是否也任务主服务器已经进入了下线状态，当`Sentinel`从其他`Sentinel`那里接收到足够数量的已下线判断之后，`Sentinel`就会将从服务器判断为客观下线，并对主服务器记性故障转移操作
+
+
+
+### 11.8 选举领头Sentinel
+
+互发消息，先到先得
+
+
+
+### 11.9 故障转移
+
+1. 在已下线主服务器属下的所有从服务器里面，挑选出一个从服务器，并将其转换为主服务器
+2. 让已下线主服务器属下的所有从服务器改为复制新的主服务器
+3. 将已下线主服务器设置为新的主服务器的从服务器，当这个旧的主服务器重新上线时，就会成为新的主服务器的从服务器
 
 
 
